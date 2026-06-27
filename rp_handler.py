@@ -7,7 +7,7 @@ import json
 from websocket_server import WebsocketServer
 from llama_cpp import Llama
 
-MAX_SESSION_SECONDS = int(os.environ.get("MAX_SESSION_SECONDS", "120"))
+MAX_SESSION_SECONDS = int(os.environ.get("MAX_SESSION_SECONDS", "30"))
 MODEL_URL = os.environ.get("MODEL_URL")
 MODEL_PATH = os.environ.get("MODEL_PATH", "/models/model.gguf")
 N_CTX = int(os.environ.get("N_CTX", "16384"))
@@ -106,7 +106,7 @@ def handler(event):
     public_ip = os.environ.get("RUNPOD_PUBLIC_IP", "localhost")
     tcp_port = int(os.environ.get("RUNPOD_TCP_PORT_8765", "8765"))
 
-    runpod.serverless.progress_update(event, f"Public IP: {public_ip}, TCP Port: {tcp_port}")
+    print(f"CONNECT ws://{public_ip}:{tcp_port}", flush=True)
 
     init_model()
     result = start_websocket()
