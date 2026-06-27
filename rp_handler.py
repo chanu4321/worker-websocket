@@ -1,6 +1,7 @@
 import os
 import requests
 import runpod
+import json
 from websocket_server import WebsocketServer
 from llama_cpp import Llama
 
@@ -48,22 +49,29 @@ def on_message(client, server, message: str):
         server.shutdown()
         return
 
-    # Treat incoming message as a prompt
+    payload = json.loads(msg)
+messages = payload.get("messages", [])
+temperature = float(payload.get("temperature", 0.7))
+max_tokens = int(payload.get("max_tokens", 512))
+
+# very simple chat-to-text prompt; keep it minimal (you can improve later)
+prompt = ""
+for m in messages:
+    role = m.get("role", "user")
+    content = m.get("content", "")
+    prompt += f"{role.upper()}: {content}\n"
+prompt += "ASSISTANT: "
+
     init_model()
 
     # Stream tokens back
     # If you prefer chat format, you can build a prompt template in the gateway.
-    for out in llm(
-        prompt=msg,
-        max_tokens=512,
-        stream=True,
-        temperature=0.7,
-    ):
-        token = out["choices"][0]["text"]
-        if token:
-            server.send_message(client, token)
+    for out in llm(prompt=prompt, max_tokens=max_tokens, stream=True, temperature=temperature):
+    token = out["choices"][0]["text"]
+    if token:
+        server.send_message(client, json.dumps({"type": "delta", "content": token}))
+server.send_message(client, json.dumps({"type": "done"}))
 
-    server.send_message(client, "[DONE]")
 
 def start_websocket():
     server = WebsocketServer(host="0.0.0.0", port=8765)
