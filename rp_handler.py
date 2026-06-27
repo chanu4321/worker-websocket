@@ -10,6 +10,7 @@ from llama_cpp import Llama
 MAX_SESSION_SECONDS = int(os.environ.get("MAX_SESSION_SECONDS", "30"))
 MODEL_URL = os.environ.get("MODEL_URL")
 MODEL_PATH = os.environ.get("MODEL_PATH", "/models/model.gguf")
+WS_PORT = int(os.environ.get("WS_PORT", "443"))
 N_CTX = int(os.environ.get("N_CTX", "16384"))
 N_GPU_LAYERS = int(os.environ.get("N_GPU_LAYERS", "999"))  # try to offload as much as possible
 
@@ -88,7 +89,7 @@ def start_websocket():
     global shutdown_flag
     shutdown_flag = False
 
-    server = WebsocketServer(host="0.0.0.0", port=8765)
+    server = WebsocketServer(host="0.0.0.0", port=WS_PORT)
     server.set_fn_message_received(on_message)
 
     # Safety timer: shuts down even if client never sends "shutdown"
@@ -104,7 +105,7 @@ def start_websocket():
 
 def handler(event):
     public_ip = os.environ.get("RUNPOD_PUBLIC_IP", "localhost")
-    tcp_port = int(os.environ.get("RUNPOD_TCP_PORT_8765", "8765"))
+    tcp_port = int(os.environ.get(f"RUNPOD_TCP_PORT_{WS_PORT}", str(WS_PORT)))
 
     print(f"CONNECT ws://{public_ip}:{tcp_port}", flush=True)
 
