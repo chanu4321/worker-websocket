@@ -1,10 +1,13 @@
 import os
 import requests
+import time
+import threading
 import runpod
 import json
 from websocket_server import WebsocketServer
 from llama_cpp import Llama
 
+MAX_SESSION_SECONDS = int(os.environ.get("MAX_SESSION_SECONDS", "120"))
 MODEL_URL = os.environ.get("MODEL_URL")
 MODEL_PATH = os.environ.get("MODEL_PATH", "/models/model.gguf")
 N_CTX = int(os.environ.get("N_CTX", "16384"))
@@ -82,8 +85,20 @@ def on_message(client, server, message: str):
 
 
 def start_websocket():
+    global shutdown_flag
+    shutdown_flag = False
+
     server = WebsocketServer(host="0.0.0.0", port=8765)
     server.set_fn_message_received(on_message)
+
+    # Safety timer: shuts down even if client never sends "shutdown"
+    def auto_shutdown():
+        time.sleep(MAX_SESSION_SECONDS)
+        if not shutdown_flag:
+            server.shutdown()
+
+    threading.Thread(target=auto_shutdown, daemon=True).start()
+
     server.run_forever()
     return "WebSocket server stopped"
 
