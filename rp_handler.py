@@ -45,32 +45,40 @@ def on_message(client, server, message: str):
 
     if msg.lower() == "shutdown":
         shutdown_flag = True
-        server.send_message(client, "[shutdown]")
+        server.send_message(client, json.dumps({"type": "shutdown"}))
         server.shutdown()
         return
 
-    payload = json.loads(msg)
-messages = payload.get("messages", [])
-temperature = float(payload.get("temperature", 0.7))
-max_tokens = int(payload.get("max_tokens", 512))
+    # Parse OpenAI-like payload
+    try:
+        payload = json.loads(msg)
+    except json.JSONDecodeError:
+        server.send_message(client, json.dumps({"type": "error", "message": "Invalid JSON"}))
+        return
 
-# very simple chat-to-text prompt; keep it minimal (you can improve later)
-prompt = ""
-for m in messages:
-    role = m.get("role", "user")
-    content = m.get("content", "")
-    prompt += f"{role.upper()}: {content}\n"
-prompt += "ASSISTANT: "
+    messages = payload.get("messages", [])
+    temperature = float(payload.get("temperature", 0.7))
+    max_tokens = int(payload.get("max_tokens", 512))
+
+    # Minimal chat prompt (you can improve this later)
+    prompt = ""
+    for m in messages:
+        role = (m.get("role") or "user").upper()
+        content = m.get("content") or ""
+        prompt += f"{role}: {content}\n"
+    prompt += "ASSISTANT: "
 
     init_model()
 
-    # Stream tokens back
-    # If you prefer chat format, you can build a prompt template in the gateway.
-    for out in llm(prompt=prompt, max_tokens=max_tokens, stream=True, temperature=temperature):
-    token = out["choices"][0]["text"]
-    if token:
-        server.send_message(client, json.dumps({"type": "delta", "content": token}))
-server.send_message(client, json.dumps({"type": "done"}))
+    # Stream token deltas
+    try:
+        for out in llm(prompt=prompt, max_tokens=max_tokens, stream=True, temperature=temperature):
+            token = out["choices"][0]["text"]
+            if token:
+                server.send_message(client, json.dumps({"type": "delta", "content": token}))
+        server.send_message(client, json.dumps({"type": "done"}))
+    except Exception as e:
+        server.send_message(client, json.dumps({"type": "error", "message": str(e)}))
 
 
 def start_websocket():
