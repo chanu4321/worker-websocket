@@ -107,12 +107,17 @@ def handler(event):
     public_ip = os.environ.get("RUNPOD_PUBLIC_IP", "localhost")
     tcp_port = int(os.environ.get(f"RUNPOD_TCP_PORT_{WS_PORT}", str(WS_PORT)))
 
-    print(f"CONNECT ws://{public_ip}:{tcp_port}", flush=True)
+    # Only progress_update if event looks like a real job payload
+    if isinstance(event, dict) and "id" in event and "input" in event:
+        runpod.serverless.progress_update(
+            event,
+            {"public_ip": public_ip, "tcp_port": tcp_port}
+        )
 
     init_model()
     result = start_websocket()
-
     return {"message": result, "public_ip": public_ip, "tcp_port": tcp_port}
+
 
 if __name__ == "__main__":
     runpod.serverless.start({"handler": handler})
